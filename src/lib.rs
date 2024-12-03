@@ -1,19 +1,38 @@
 use abi_stable::std_types::{RString, RVec, ROption};
 use anyrun_plugin::*;
+use std::fs::read_to_string;
 use std::fs::OpenOptions;
 use std::io::Write;
+use ron::from_str;
+use serde::Deserialize;
 use chrono::prelude::*;
 
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            inbox_file: "~/org/inbox.org".into(),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct Config {
+    inbox_file: String,
+}
+
 #[init]
-fn init(_config_dir: RString) {
-    // Initialization code if needed
+pub fn init(config_dir: RString) -> Config {
+    match read_to_string(format!("{}/orgtodo.ron", config_dir)) {
+        Ok(contents) => from_str(&contents).unwrap(),
+        Err(_) => Config::default(),
+    }
 }
 
 #[info]
 fn info() -> PluginInfo {
     PluginInfo {
-        name: "TODO".into(),
-        icon: "list-add".into(), // Icon from the icon theme
+        name: "org-capture TODO".into(),
+        icon: "emacs".into(),
     }
 }
 
@@ -23,14 +42,14 @@ fn get_matches(input: RString) -> RVec<Match> {
         title: input.clone(),
         icon: ROption::RSome("list-add".into()),
         use_pango: false,
-        description: ROption::RSome("Add this TODO to your inbox".into()),
+        description: ROption::RSome("Add this TODO to your inbox.org".into()),
         id: ROption::RNone,
     }].into()
 }
 
 #[handler]
-fn handler(selection: Match) -> HandleResult {
-    let inbox_file = "/path/to/your/inbox.org";
+fn handler(selection: Match, config: &Config) -> HandleResult {
+    let inbox_file = &config.inbox_file;
     let todo_text = selection.title;
 
     let mut file = OpenOptions::new().append(true).open(inbox_file)
